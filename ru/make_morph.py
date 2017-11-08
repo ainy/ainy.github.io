@@ -22,13 +22,9 @@ for s,n,r in dic:
             vv[s].append(str(r))
             seen.add(r)
 
-print len(vv), len(freq)
+print 'words:', len(vv), 'of', len(freq)
 
-import umsgpack #umsgpack.packb
-f=codecs.open('morph.yaml','w','utf8')
-for k in vv:
-  f.write(k+':'+','.join(vv[k])+'\n')
-f.close()
+import umsgpack
 
 para = conn.execute('select rule, suffix, tag from form;').fetchall()
 paradigm = {}
@@ -36,37 +32,36 @@ tags = set()
 for r,s,t in para:
   if r not in seen: continue
   t = set(t.split(','))
-  paradigm[r]=paradigm.get(r, [[], t, 0] )
+  paradigm[r]=paradigm.get(r, [[], t, []] )
   paradigm[r][0].append((s,t))
   paradigm[r][1] = paradigm[r][1] & t
   tags = tags | t
 
 tags = dict(zip(tags,range(len(tags))))
 for p in paradigm.values():
-  p[0] = set([(s,','.join([str(tags[x]) for x in t-p[1]])) for s,t in p[0] if s or t-p[1] ])
-  p[1] = ','.join([str(tags[x]) for x in p[1]])
-  p[2] = p[0].copy()
+  p[0] = set([(s, tuple([tags[x] for x in t-p[1]])) for s,t in p[0] if s or t-p[1] ])
+  p[1] = tuple([(tags[x]) for x in p[1]])
   
 
 i=0
+import copy
+paradigm_orig = copy.deepcopy(paradigm)
 for k,p in paradigm.iteritems():
-  print '\r',i*100/len(paradigm),'%',
+  print '\rCompress:',i*100/len(paradigm),'%',
   i+=1
   if not p[0]: continue
-  for kk,pp in paradigm.iteritems():
+  for kk,pp in paradigm_orig.iteritems():
     if not len(pp[0]): continue
     if k==kk: continue
-    if p[0] >= pp[2]: 
-      p[0] -= pp[2]
-      p[1] += (';' if ';' not in p[1] else (',' if p[1] else ''))+str(kk)
+    if p[0] >= pp[0]: 
+      p[0] -= pp[0]
+      p[-1].append(kk)
 
+for p in paradigm.values():
+  p[0] = dict(p[0])
 
-f=codecs.open('paradigm.yaml','w','utf8')
-for k in paradigm:
-  f.write(str(k)+':'+paradigm[k][1]+'\n')
-  forms = (paradigm[k][0])
-  for kk,vv in forms:
-    f.write('\t'+kk+':'+vv+'\n')
+f=open('morph.bin','wb')
+f.write(umsgpack.packb([vv,paradigm,tags]))
 f.close()
 
 #import dawg
