@@ -133,7 +133,7 @@ def print_tree(t, labels={}, sp=0):
 learned = defaultdict(list)
 i=0
 for self in a:
-    print '\rProcessed',i,'sentences',len(learned),
+    print '\rProcessed',i,'sentences',len(learned),'cases',
     i+=1
     self.learned = learned
     self.oracle()
@@ -157,7 +157,8 @@ for k in learned:
 tags = dict(zip(tags,range(len(tags))))
 grammar = {}
 for k in learned:
-  grammar[tuple([tags[x] for x in k])] = [len(learned[k]), sum([bool(x[0]) for x in learned[k]])]
+  if len(learned[k])>1:
+    grammar[tuple([tags[x] for x in k])] = [len(learned[k]), sum([bool(x[0]) for x in learned[k]])]
 
 
 import umsgpack

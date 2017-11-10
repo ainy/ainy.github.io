@@ -18,8 +18,9 @@ for s,n,r in dic:
     w = w.replace('ё','е')
     if w in freq:
         if freq[w]>0:
+            s = s.replace('ё','е') #testing! comment me
             vv[s] = vv.get(s,[])
-            vv[s].append(str(r))
+            vv[s].append(r)
             seen.add(r)
 
 print 'words:', len(vv), 'of', len(freq)
@@ -32,6 +33,7 @@ tags = set()
 for r,s,t in para:
   if r not in seen: continue
   t = set(t.split(','))
+  s = s.replace('ё','е') #testing! comment me
   paradigm[r]=paradigm.get(r, [[], t, []] )
   paradigm[r][0].append((s,t))
   paradigm[r][1] = paradigm[r][1] & t
@@ -53,7 +55,7 @@ for k,p in paradigm.iteritems():
   for kk,pp in paradigm_orig.iteritems():
     if not len(pp[0]): continue
     if k==kk: continue
-    if p[0] >= pp[0]: 
+    if p[0] > pp[0]: 
       p[0] -= pp[0]
       p[-1].append(kk)
 
