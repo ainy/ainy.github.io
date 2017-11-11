@@ -2,44 +2,12 @@
 
 var fs = require("fs");
 var msgpack = require("msgpack-lite");
+var {lookup, convert, setMorph} = require('./ud.js');
+setMorph(msgpack.decode(fs.readFileSync("morph.bin")));
 
-var [stem, para, sgat] = msgpack.decode(fs.readFileSync("morph.bin"));
-var tags = new Map();
-for (var i in sgat) tags.set(sgat[i],i);
-
-//var stem = new Map(Object.entries(stem));
-//var para = new Map(Object.entries(para));
-
-function look_para(ret, p, suffix, wsmi) {
-  var nosuffix = Object.keys(para[p][0]).length == 0 && !suffix;
-  if (suffix in para[p][0] || nosuffix) {
-    var info=''
-    for (var t in para[p][1])
-      info += tags.get(para[p][1][t])+','
-    for (var t in para[p][0][suffix])
-      info += tags.get(para[p][0][suffix][t])+','
-    
-    ret.push(info+wsmi+'+'+p);
-  }
-  for (var k in para[p][2])
-    look_para(ret,para[p][2][k],suffix, wsmi);
-}
-
-function lookup(word) {
-  var ret = [];
-  word = word+'#';
-  for(var i=1; i<=word.length; i++) {
-    var wsmi = word.slice(0,-i);
-    if(wsmi in stem) 
-      for(var j in stem[wsmi])
-        look_para(ret, stem[wsmi][j], word.slice(-i,-1), wsmi);
-  }
-  return ret;
-}
 //console.log(stem['привет']);
 console.log(lookup('приветствие'));
 
-var convert = require('./opencorpora_to_syntagrus.js');
 var test = fs.readFileSync("UD_Russian-SynTagRus/ru_syntagrus-ud-train.conllu",'utf8');
 var poserror = 0, tagerror=0, notfound=0, total = 0;
 test.split('\n').forEach((line,num)=>{

@@ -34,7 +34,7 @@ class SentanceRu(object):
     rest = {'Mood=Imp','Voice=Pass','VerbForm=Inf','VerbForm=Trans','VerbForm=Part','Variant=Brev','Degree=Pos','Degree=Cmp'}
     def get_pos(self, i, ch={}):
         ret = [self.p[i]]
-        if self.p[i] in {'SCONJ','PART','CONJ','PUNCT'}: ret=[self.w[i]]
+        if self.p[i] in {'SCONJ','PART','CCONJ','PUNCT'}: ret=[self.w[i]]
         if self.p[i] == 'AUX': ret=[self.n[i]]
 
         if self.p[i] == 'NOUN': ret += self.t[i] & self.cases

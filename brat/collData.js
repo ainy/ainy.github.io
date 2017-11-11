@@ -1,4 +1,4 @@
-{
+var collData = {
     "entity_types": [
         {
             "type": "SPAN_DEFAULT",
