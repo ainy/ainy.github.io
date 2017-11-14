@@ -158,8 +158,7 @@ tags = dict(zip(tags,range(len(tags))))
 grammar = {}
 for k in learned:
   if len(learned[k])>1:
-    grammar[tuple([tags[x] for x in k])] = [len(learned[k]), sum([bool(x[0]) for x in learned[k]])]
-
+    grammar[tuple(sorted([tags[x] for x in k]))] = [len(learned[k]), sum([bool(x[0]) for x in learned[k]])]
 
 import umsgpack
 f=open('grammar.bin','wb')

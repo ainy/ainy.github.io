@@ -35,11 +35,11 @@
     if((navigator.language||navigator.systemLanguage)=='en') { $('.en').show(); $('.ru').hide() }
     var jobs = [
       {url:'ru/morph.bin',progress:0,done:setMorph},
-      {url:'ru/grammar.bin',progress:0},
+      {url:'grammar.bin',progress:0,done:setGrammar},
     ]
     jobs.map(job => {
       var xhr = new XMLHttpRequest();
-      xhr.open("GET", job.url, true);
+      xhr.open("GET", job.url+'?d='+Date.now(), true);
       xhr.responseType = "arraybuffer";
 
       xhr.onload = function(evt) {
@@ -69,27 +69,7 @@
     });
     $("#input").on('keyup', function (e) {
         if (e.keyCode == 13) {
-            // Do something
-            var words = $("#input").val().split(' ');
-            var data = '';
-            var i=1;
-            for (var w in words) {
-              var word = words[w]
-              word = word.split('ё').join('е')
-              var parts = word.match(/[a-я]+|[^а-я]/gi);
-              for (var p in parts) {
-                var part = parts[p].toLowerCase();;
-                var morph;
-                if (!part.match(/[а-я]+/gi)) morph = ['PUNCT',new Set()];
-                else {
-                  var guess = lookup(part).map(x=>convert(part, x));
-                  if (!guess.length) guess=[convert(parts[p])];
-                  morph = guess[0];
-                }
-                data += i+'\t'+parts[p]+'\t'+part+'\t'+(morph[0]||'_')+'\t'+(morph[0]||'_')+'\t'+(Array.from(morph[1]).join('|')||'_')+'\t_\t_\t_\n';
-                i++;
-              }
-            }
+            var data = sentance($("#input").val());
             var conll = new ConllU.Document();
             doc = conll.parse(data).toBrat();
             liveDispatcher.post('requestRenderData', [doc]);
