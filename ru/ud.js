@@ -1,88 +1,5 @@
 'use strict';
 
-function convert(w, tags, orig) {
-    const tconv = {'actv':'Voice=Act', 'indc':'Mood=Ind', 'gen2':'Case=Par', 'datv':'Case=Dat', 'accs':'Case=Acc','acc2':'Case=Acc', 'ANim':'Animacy=Anim','anim':'Animacy=Anim', 'perf':'Aspect=Perf', 'plur':'Number=Plur', 'femn':'Gender=Fem', 'impf':'Aspect=Imp', 'pssv':'Voice=Pass', 'inan':'Animacy=Inan', 'sing':'Number=Sing', 'past':'Tense=Past', 'neut':'Gender=Neut', 'pres':'Tense=Pres', 'voct':'Case=Voc', 'nomn':'Case=Nom', 'futr':'Tense=Fut', 'Supr':'Degree=Sup', '2per':'Person=2', '3per':'Person=3', 'impr':'Mood=Imp', '1per':'Person=1', 'ablt':'Case=Ins', 'gent':'Case=Gen','gen1':'Case=Gen', 'masc':'Gender=Masc', 'loct':'Case=Loc', 'loc2':'Case=Loc', 'loc1':'Case=Loc'}
-
-    const pconv = {
-      "ADJF":["ADJ"],
-      "ADJS":["ADJ","Variant=Short"],
-      "COMP":["ADJ","Degree=Cmp"],
-      "VERB":["VERB","VerbForm=Fin"],
-      "INFN":["VERB","VerbForm=Inf"],
-      "PRTF":["VERB","VerbForm=Part"],
-      "PRTS":["VERB","VerbForm=Part", "Variant=Short"],
-      "GRND":["VERB","VerbForm=Conv"],
-      "NUMR":["NUM"],
-      "ROMN":["NUM"],
-      "LATN":["NUM"],
-      "NUMB":["NUM"],
-      "ADVB":["ADV"],
-      "NPRO":["PRON"],
-      "PRED":["ADV","Degree=Pos"],
-      "PREP":["ADP"],
-      "PRCL":["PART"],
-      "NOUN":["NOUN"],
-      "INTJ":["INTJ"],
-      "CONJ":["CCONJ"]
-    }
-  
-    var tags_guess = new Set();
-    var pos_guess = ''
-    if (tags===undefined) {
-      if (w === w.toUpperCase())
-        if (Array.from(w).every(x=>'XIV'.indexOf(x)>=0))
-          pos_guess = 'NUM';
-        else
-          pos_guess = 'NOUN';
-      else if (/^\d+$/.test(w.replace(',','').replace('.','')))
-        pos_guess = 'NUM';
-      else if (w.endsWith('.'))
-        pos_guess = 'NOUN';
-      else if (w[0]==w[0].toUpperCase())
-        pos_guess = 'PROPN';
-    }
-    else tags_guess = new Set(tags.split(',').join(' ').split(' '));
-    
-    if (tags_guess.has('котор+1805'))
-      pos_guess = 'PRON';//PRON
-    else if (tags_guess.has('эт+3102')) {
-      //PRON||PART||DET
-      pos_guess = 'DET';//DET
-      tags_guess.add('Animacy=Inan');
-    }
-    else if (tags_guess.has('ADJF') && tags_guess.has('Apro')) pos_guess = 'DET';
-    else if (tags_guess.has('CONJ') && w.length > 2)
-      pos_guess = 'SCONJ';
-    else if (tags_guess.has('Geox')||tags_guess.has('Surn')||tags_guess.has('Name')||tags_guess.has('Patr'))
-      pos_guess = 'PROPN';
-    else if (tags_guess.has('+600')) // быть
-      if (tags_guess.has('PRTF'))
-        pos_guess = 'ADJ';
-      else
-        pos_guess = 'AUX';
-        //if 'past' in tags_guess: tags_guess.add('Tense=Pres')
-    
-    if (tags_guess.has('т+2908') || tags_guess.has('эт+3103')) tags_guess.add('Animacy=Inan');
-    
-    tags_guess = Array.from(tags_guess);
-    for (var i in tags_guess) {
-      var tg = tags_guess[i];
-      if (!pos_guess && tg in pconv) {
-        var p = pconv[tg].slice();
-        pos_guess = p.shift();
-        for (var j in p) tags_guess.push(p[j]);
-      }
-      else if (tg in tconv)
-        tags_guess[i] = tconv[tg];
-    }
-    //if (!pos_guess) TODO: guess_pos...
-    tags_guess = new Set(tags_guess);
-    if ((pos_guess == 'VERB' || pos_guess == 'AUX') && !tags_guess.has('Voice=Pass')) tags_guess.add(w.endsWith('ся')?'Voice=Mid':'Voice=Act');
-    if ((pos_guess == 'DET' || pos_guess == 'ADV' || pos_guess == 'ADJ'||pos_guess=='VERB'&&tags_guess.has('VerbForm=Part'))  && !tags_guess.has('Degree=Cmp') && !tags_guess.has('Degree=Sup'))
-      tags_guess.add('Degree=Pos');
-    
-    return [pos_guess, tags_guess];
-}
 var para, stem, tags;
 function setMorph([s, p, t]) {
   para = p;
@@ -118,6 +35,48 @@ function lookup(word) {
   return ret;
 }
 
+function guess(w) {
+  var pos_guess;
+  if (w === w.toUpperCase())
+    if (Array.from(w).every(x=>'XIV'.indexOf(x)>=0))
+      pos_guess = 'NUMR';
+    else
+      pos_guess = 'NOUN';
+  else if (/^\d+$/.test(w.replace(',','').replace('.','')))
+    pos_guess = 'NUMR';
+  else if (w.endsWith('.'))
+    pos_guess = 'NOUN';
+  else if (w[0]==w[0].toUpperCase())
+    pos_guess = 'NPRO';
+
+  return pos_guess;
+}
+
+function guess2(w) {
+  var pos_guess;
+  if (w.match(/[а-я]+/gi)) //куздра, Ту-154, см^2, а_также, млрд., г.
+  {
+    if (w === w.toUpperCase())
+      if (Array.from(w).every(x=>'XIV'.indexOf(x)>=0))
+        pos_guess = 'NUMR';
+      else
+        pos_guess = 'NOUN';
+    else if (w[0]==w[0].toUpperCase())
+      pos_guess = 'NPRO';
+    else if (w.endsWith('.'))
+      pos_guess = 'NOUN';
+    else if (w.indexOf('_')>=0)
+      pos_guess = 'CONJ';
+  
+  }
+  else if (w.match(/[0-9]+/gi)) //10_000, 0.2%, 5,31x2,11, 1941-1945
+    pos_guess = 'NUMR';
+  else pos_guess = 'PUNCT';
+  
+  return pos_guess;
+}
+
+
 var grammar, gtags, stats;
 function setGrammar([g,t]) {
   grammar = g;
@@ -146,15 +105,10 @@ function pos(item) {
 }
 
 function pos_features(self, item, ch) {
-  //item = item[0];
-  const cases = (['Case=Nom','Case=Gen','Case=Acc','Case=Dat','Case=Loc','Case=Ins','Case=Voc']);
-  const rest = (['Mood=Imp','Voice=Pass','VerbForm=Inf','VerbForm=Trans','VerbForm=Part','Variant=Brev','Degree=Pos','Degree=Cmp']);
-  var ret = [pos(item)];
-  
-  if (ret[0] == 'NOUN')
-    ret = ret.concat(cases.filter(x=>item[5].has(x)));
-  
-  ret = ret.concat(rest.filter(x=>item[5].has(x)));
+  var ret = [];
+  if (item[3] == 'PRCL' || item[3] == 'CONJ' || item[3] == 'PUNCT') ret = [item[1]];
+  ret = ret.concat(item[5]);
+  if (!ret.length) ret = ['_'];
   for (var c in ch) ret.push('has:'+pos(self[ch[c]]));
   return ret;
 }
@@ -164,7 +118,7 @@ function set_link(self, i, j, label) {
   self[i][7]=label;
 }
 
-function check_link(dif, f1,f2,f3) {
+function predict_link(dif, f1,f2,f3) {
   var feat = f1.map(x=>'leaf:'+x).concat(f2,f3)
   feat = feat.map(x=>gtags.get(x));
   feat.sort();
@@ -173,7 +127,7 @@ function check_link(dif, f1,f2,f3) {
   while (feat.length && !(k in grammar)) {
     var min_tag;
     for (var f in feat)
-      if (stats.get(feat[f]) < stats.get(feat[min_tag])||Infinity)
+      if ((stats.get(feat[f])||0) < stats.get(feat[min_tag])||Infinity)
         min_tag = f;
     feat.splice(min_tag, 1);
     k = feat.join(',');
@@ -202,11 +156,11 @@ function parse(self) {
       var ipos = pos_features(self, self[i], Array.from((tt.get(i)||new Map()).keys()) )
       var kpos = pos_features(self, self[k], Array.from((tt.get(k)||new Map()).keys()) )
       var common_tags = []
-      var tags = Array.from(self[i][5]).filter(x=>self[k][5].has(x));
+      var tags = self[i][5].filter(x=>self[k][5].includes(x));
       for (var tag in tags)
         common_tags.push(tags[tag].split('=')[0]);
       
-      if (tt==t && check_link(i-k, kpos, ipos, common_tags)) {
+      if (tt==t && predict_link(i-k, kpos, ipos, common_tags)) {
         set_link(self, k, i+1, num++);
         tt.set(i, tt.get(i) || new Map());
         tt.get(i).set(k, tt.get(k)); //tt[i][k] = tt[k];
@@ -215,7 +169,7 @@ function parse(self) {
             continue
       }
         
-      if (check_link(k-i, ipos, kpos, common_tags)) {
+      if (predict_link(k-i, ipos, kpos, common_tags)) {
         set_link(self, i, k+1, num++);
         if (t.has(i)) { 
           tt.set(k, tt.get(k) || new Map()); //tt[k][i] = t[i]
@@ -236,31 +190,69 @@ function parse(self) {
   }
 }
 
-function sentance(words){
+function tokenize(line) {
   var data = [];
-  words = words.split(' ');
-  var i=1;
+  var words = line.split(' ');
   for (var w in words) {
-    var word = words[w]
-    word = word.split('ё').join('е')
-    var parts = word.match(/[a-я]+|[^а-я]/gi);
+    var word = words[w];
+    if (!word.match(/[a-zа-я]/gi)) {
+      var parts = word.match(/[0-9_]+|[^0-9_]/gi);
+      if (parts && (parts[1]=='.'||parts[1]==',') && parts[2])
+        data.push(parts.shift()+parts.shift()+parts.shift());
+      for (var p in parts) data.push(parts[p]);
+      continue;
+    }
+    word = word.split('ё').join('е');
+    var parts = word.match(/[a-я0-9\-_&%]+|[^а-я0-9\-_&%]/gi);
+    if (parts[0].match(/^[А-Я]$/gi) && parts[1] == '.')
+      data.push(parts.shift()+parts.shift());
+    
     for (var p in parts) {
-      var part = parts[p].toLowerCase();
-      var morph;
-      if (!part.match(/[а-я]+/gi)) morph = ['PUNCT',new Set()];
-      else {
-        var guess = lookup(part).map(x=>convert(part, x));
-        if (!guess.length) guess=[convert(parts[p])];
-        morph = guess[0];
+      var prt = parts[p];
+      if (prt.indexOf('-')>=0) {
+        var lu = lookup(prt.toLowerCase());
+        var spl = prt.split('-');
+        var splc = prt.toLowerCase().split('-');
+        var splu;
+        if (!lu.length) splu = splc.map(lookup).every(x=>x.length);
+        if (splu || !lu.length && prt.indexOf('-то')>=0 || prt.indexOf('-то')<0 && prt.indexOf('-либо')<0 && prt.indexOf('-нибудь')<0 && lu[0] && lu[0].indexOf('ADJF')>=0 && spl.length==2) {
+          for(var i in spl) {
+            if (spl[i]) data.push(spl[i]);
+            data.push('-');
+          }
+          data.pop();
+          //console.log(data);
+        } else data.push(prt);
       }
-      data.push([i,parts[p],part,morph[0],morph[0],morph[1],0,0,0]);
-      i++;
+      else data.push(prt);
     }
   }
+  return data;
+}
+
+function sentance(words){
+  words = tokenize(words);
+  var i=1;
+  var data = [];
+  for (var w in words) {
+    var word = words[w].toLowerCase();
+    var morph = lookup(word);
+    if (!morph.length) morph=[guess2(words[w])||''];
+    morph = morph[0].split(' ').join(',').split(',');
+    var pos = morph[0];
+    var tags = [];
+    for(var m=0; m<morph.length; m++) {
+      if (morph[m].indexOf('+')>=0) word = morph[m];
+      else if (morph[m].toUpperCase() == morph[m]) {pos = morph[m];tags.push(pos);}
+      else tags.push(morph[m]);
+    }
+    
+    data.push([i,words[w],word,pos,morph[0],tags,0,0,0]);
+    i++;
+  }
   parse(data);
-  console.log(data);
   for (var d in data) data[d][5] = Array.from(data[d][5]).join('|');
   return data.map(x=>x.join('\t')).join('\n');
 }
 
-if (typeof module != 'undefined') module.exports = {convert, lookup, setMorph, setGrammar, parse, sentance}
+if (typeof module != 'undefined') module.exports = {lookup, setMorph, setGrammar, parse, sentance}

@@ -32,7 +32,7 @@ paradigm = {}
 tags = set()
 for r,s,t in para:
   if r not in seen: continue
-  t = set(t.split(','))
+  t = set(t.replace(' ',',').split(','))
   s = s.replace('ё','е') #testing! comment me
   paradigm[r]=paradigm.get(r, [[], t, []] )
   paradigm[r][0].append((s,t))
