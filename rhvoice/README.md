@@ -1,7 +1,7 @@
 Build
 ======
 
-Scons and (emscripten)[https://kripken.github.io/emscripten-site/docs/getting_started/downloads.htm] must be installed (both avalable in ubuntu through <code>apt-get</code>).
+Scons and [emscripten](https://kripken.github.io/emscripten-site/docs/getting_started/downloads.htm) must be installed (both avalable in ubuntu through <code>apt-get</code>).
 
 ```bash
 git submodule init
