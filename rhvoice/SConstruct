@@ -1,0 +1,73 @@
+import os
+env = Environment(toolpath=[os.environ['EMSCRIPTEN']+'/tools/scons/site_scons/site_tools'])
+env.Append(CXXFLAGS = ['-std=c++03'])
+env.Append(CLAGS = ['-fPIC','-O3'])
+env.Tool('emscripten')
+env.BuildLibrary = env.Library
+
+env.Append(CXXFLAGS='-I../src/third-party/hts_engine')
+
+hts_engine = env.Library("hts_engine", Glob("../src/third-party/hts_engine/*.c"))
+libsonic = env.Library("sonic","../src/third-party/sonic/sonic.c")
+libmage = env.Library("mage", Glob("../src/third-party/mage/*.cpp"))
+
+env.Append(CXXFLAGS='-I../src/include')
+env.Append(CXXFLAGS='-I../src/third-party/sonic')
+env.Append(CXXFLAGS='-I../src/third-party/mage')
+env.Append(CXXFLAGS='-I../src/third-party/utf8')
+env.Append(CXXFLAGS='-I../src/third-party/rapidxml')
+env.Append(CXXFLAGS='-Ilibao-1.2.0/include')
+
+src=["../src/audio/audio.cpp","../src/audio/libao.cpp"]
+env.Append(CPPDEFINES={"WITH_LIBAO":"1"})
+libRHVoice_audio=env.Library("RHVoice_audio", src)
+
+env.Append(CPPDEFINES={"DATA_PATH":r'\"data\"',"CONFIG_PATH":r'\"config\"',"VERSION":r'\"0.6\"', "RHVOICE":"1", "PACKAGE":r'\"RHVoice\"'})
+src=["../src/core/unicode.cpp",
+	 "../src/core/io.cpp",
+	 "../src/core/path.cpp",
+	 "../src/core/fst.cpp",
+	 "../src/core/dtree.cpp",
+	 "../src/core/lts.cpp",
+	 "../src/core/item.cpp",
+	 "../src/core/relation.cpp",
+	 "../src/core/utterance.cpp",
+	 "../src/core/document.cpp",
+	 "../src/core/ini_parser.cpp",
+	 "../src/core/config.cpp",
+	 "../src/core/engine.cpp",
+	 "../src/core/params.cpp",
+	 "../src/core/phoneme_set.cpp",
+	 "../src/core/language.cpp",
+	 "../src/core/russian.cpp",
+	 "../src/core/english.cpp",
+	 "../src/core/esperanto.cpp",
+	 "../src/core/georgian.cpp",
+	 "../src/core/ukrainian.cpp",
+	 "../src/core/kyrgyz.cpp",
+	 "../src/core/tatar.cpp",
+	 "../src/core/userdict.cpp",
+	 "../src/core/voice.cpp",
+	 "../src/core/hts_engine_impl.cpp",
+	 "../src/core/std_hts_engine_impl.cpp",
+	 "../src/core/mage_hts_engine_impl.cpp",
+	 "../src/core/hts_engine_call.cpp",
+	 "../src/core/hts_label.cpp",
+	 "../src/core/hts_labeller.cpp",
+	 "../src/core/speech_processor.cpp"]
+
+libRHVoice_core = env.Library("RHVoice_core",src)
+
+src = [
+  "test.cpp",
+  "libao-1.2.0/src/.libs/libao.so",
+  "../src/third-party/hts_engine/HTS106_engine.c",
+  libRHVoice_core,
+  libRHVoice_audio,
+  hts_engine,
+  libsonic,
+  libmage]
+
+#env.Append(CXXFLAGS='-I../src/third-party/tclap')
+test = env.Program("RHVoice-test", src, LIBS=['openal'], LINKFLAGS='-std=c++03 -fPIC -O3 --preload-file config -s ALLOW_MEMORY_GROWTH=1 -s DISABLE_EXCEPTION_CATCHING=0 -s WASM=1 -s EXPORTED_FUNCTIONS=\'["_tts"]\' -s EXTRA_EXPORTED_RUNTIME_METHODS=\'["ccall"]\'')
+

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  </head>
+  <body><h2><a href="https://github.com/Olga-Yakovleva/RHVoice">RHVoice</a> speech synthesizer JavaScript\WebAssembly module</h2>
+    <ul style="display:inline-block;float:left">
+      <li>
+        <label><input type="checkbox" class="english" checked>Английский - English</input></label>:
+        <ul>
+          <li><label><input type="radio" name="eng_group" class="english" id="alan" checked>voice Alan</input></label></li>
+          <li><label><input type="radio" name="eng_group" class="english" id="clb">voice Clb</input></label></li>
+          <li><label><input type="radio" name="eng_group" class="english" id="slt">voice Slt</input></label></li>
+        </ul>
+      </li>
+      <li><label><input type="checkbox" class="esperanto" id="spomenka">Эспиранто - Esperanto</input></label></li>
+      <li><label><input type="checkbox" class="georgian" id="natia">Грузинский - Georgian</input></label></li>
+      <li><label><input type="checkbox" class="kyrgyz" id="nazgul">Киргизский - Kyrgyz</input></label></li>
+      <li><label><input type="checkbox" class="russian">Русский - Russian</input></label>:
+      <ul>
+        <li><label><input type="radio" name="rus_group" class="russian" id="aleksandr" checked>voice Aleksandr</input></label></li>
+        <li><label><input type="radio" name="rus_group" class="russian" id="anna">voice Anna</input></label></li>
+        <li><label><input type="radio" name="rus_group" class="russian" id="elena">voice Elena</input></label></li>
+        <li><label><input type="radio" name="rus_group" class="russian" id="irina">voice Irina</input></label></li>
+      </ul>
+      </li>
+      <li><label><input type="checkbox" class="tatar" id="talgat">Татарский - Tatar</input></label></li>
+      <li><label><input type="checkbox" class="ukrainian" id="anatol">Украинский - Ukrainian</input></label></li>
+    </ul>
+    <div style="margin-left:240px;">Enter some text to test the module:
+      <textarea autofocus id = "text" style="height:250px;width:100%;">123</textarea>
+      <button onclick="say(this.previousElementSibling.value)" style="display:block">Say this</button>
+    </div>
+    <div style="clear:both;margin:40px 10px">Embed to your website (usage: rhSay(&quot;text&quot;)):
+    <textarea readonly id="embed" style="width:100%;height:190px"></textarea>
+    </div>
+    Compiled to WebAssembly with <a href="https://github.com/kripken/emscripten">emscripten</a>. See <a href="https://github.com/ainy/ainy.github.io/rhvoice">build files</a> on github.
+    <script type="text/javascript" src="fs.js"></script>
+    <script async onload="myInit()" type="text/javascript" src="RHVoice-test.js"></script>
+    <script>
+      Array.from(document.getElementsByTagName('input')).forEach(function (x) {
+        x.onchange = function() { myInit(x.className, x.id?x.id:'') }
+      });
+      var say = function (text) {console.error('TTS Module not initialized');}
+      var loaded = new Set();
+      function myInit(lang, voice) {
+        lang = lang||'english';
+        lang = lang[0].toUpperCase() + lang.substr(1);
+        voice = voice||(lang==='English'?'alan':'aleksandr');
+        console.log('using',lang,'voice',voice);
+        document.getElementById('embed').innerHTML='&lt;-- RHVoice Copyright (C) 2012, 2014  Olga Yakovleva GNU Lesser General Public License --&gt;\n&lt;script async onload="rhInit()" src="http://ainy.github.io/rhvoice/RHVoice-test.js"&gt;&lt;/script&gt;\n&lt;script&gt;\n\
+    function rhInit() {\n\
+        FS.mkdirTree("data/languages/'+lang+'");\n\
+        FS.mkdirTree("data/voices/'+voice+'");\n\
+        '+JSON.stringify(lf[lang])+'.forEach(function (x){FS.createPreloadedFile("data/languages/'+lang+'", x, "http://ainy.github.io/rhvoice/data/languages/'+lang+'/"+x, true);});\n\
+        '+JSON.stringify(vf)+'.forEach(function (x){FS.createPreloadedFile("data/voices/'+voice+'", x, "http://ainy.github.io/rhvoice/data/voices/'+voice+'/"+x, true);});\n\
+    function rhSay(text) {FS.writeFile("input", text);Module.ccall("tts",null,["string"],["'+voice+'"]);}\n&lt;/script&gt;';
+        /*if (!loaded.has('config')) {
+          loaded.add('config');
+          FS.mkdir('config');
+          FS.createPreloadedFile('config','RHVoice.conf', 'config/RHVoice.conf', true);
+        }*/
+        say = function (text) {
+            FS.writeFile('input', text);
+            Module.ccall('tts',null,['string'],[voice]);
+        }
+        if (!loaded.has(lang)) {
+          loaded.add(lang);
+          var dir = FS.mkdirTree('data/languages/'+lang);
+          lf[lang].forEach(function (x) {
+            FS.createPreloadedFile('data/languages/'+lang, x, 'data/languages/'+lang+'/'+x, true);
+          });
+        }
+        if (!loaded.has(voice)) {
+          loaded.add(voice);
+          dir = FS.mkdirTree('data/voices/'+voice);
+          vf.forEach(function (x) {
+            FS.createPreloadedFile('data/voices/'+voice, x, 'data/voices/'+voice+'/'+x, true);
+          });
+        }
+      }
+    </script>
+  </body>
+</html>
