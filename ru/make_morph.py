@@ -65,8 +65,10 @@ for k,p in paradigm.iteritems():
 for p in paradigm.values():
   p[0] = dict(p[0])
 
+import json
+
 f=open('morph.bin','wb')
-f.write(umsgpack.packb([vv,paradigm,tags]))
+f.write(umsgpack.packb([vv,paradigm,tags,json.load(open('lemmas.json'))]))
 f.close()
 
 #import dawg

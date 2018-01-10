@@ -6,8 +6,15 @@
     <title>ainy</title>
   </head>
   <body>
-    <div class="en" style="display:none">This site is an effort to bring <a target="_blank" href="http://universaldependencies.org/treebanks/ru_syntagrus/index.html">UD v1.3 parsing for Russian</a> in the browser. Enter text to parse: <span class="test1" style="border-bottom: 1px dotted;cursor: pointer;">Test1</span></div>
-    <div class="ru" style="">Грамматический анализ русского языка в браузере(<a target="_blank" href="http://universaldependencies.org/treebanks/ru_syntagrus/index.html">формат UD v1.3</a>). Введите текст: <span class="test1" style="border-bottom: 1px dotted;cursor: pointer;float:right">Тест1</span></div>
+    <div class="en" style="display:none">
+    This site is an effort to bring <a target="_blank" href="http://universaldependencies.org/treebanks/ru_syntagrus/index.html">UD v1.3 parsing for Russian</a> in the browser. Enter text to parse:
+    <span class="test1" style="border-bottom: 1px dotted;cursor: pointer;">Test1</span>
+    <span class="test2" style="border-bottom: 1px dotted;cursor: pointer;">Test2</span>
+    </div>
+    <div class="ru" style="">Грамматический анализ русского языка в браузере(<a target="_blank" href="http://universaldependencies.org/treebanks/ru_syntagrus/index.html">формат UD v1.3</a>). Введите текст: 
+    <span class="test1" style="border-bottom: 1px dotted;cursor: pointer;float:right">Тест1</span>
+    <span class="test2" style="border-bottom: 1px dotted;cursor: pointer;float:right">Тест2</span>
+    </div>
     <input id="input" type="text" style="width:100%;height:20px"></input>
     <div id="loading" style="margin: 2px 0">
       <div style="width:160px;height:16px;border:1px solid #888;float:left;margin-right:3px">
@@ -32,10 +39,11 @@
   <script type="text/javascript" src='ru/ud.js'></script>
   <script>
     $('.test1').click(x=>{$('#input').val('Алгоритм, от имени учёного аль-Хорезми, - точный набор инструкций, описывающих порядок действий исполнителя для достижения результата решения задачи за конечное время.').trigger(jQuery.Event( 'keyup', { keyCode: 13 } ))});
+    $('.test2').click(x=>{$('#input').val('Начальник областного управления связи Семен Еремеевич был человек простой, приходил на работу всегда вовремя, здоровался с секретаршей за руку и иногда даже писал в стенгазету заметки под псевдонимом "Муха".').trigger(jQuery.Event( 'keyup', { keyCode: 13 } ))});
     if((navigator.language||navigator.systemLanguage)=='en') { $('.en').show(); $('.ru').hide() }
     var jobs = [
       {url:'ru/morph.bin',progress:0,done:setMorph},
-      {url:'grammar.bin',progress:0,done:setGrammar},
+      //{url:'grammar.bin',progress:0,done:setGrammar},
     ]
     jobs.map(job => {
       var xhr = new XMLHttpRequest();
@@ -69,7 +77,7 @@
     });
     $("#input").on('keyup', function (e) {
         if (e.keyCode == 13) {
-            var data = sentance($("#input").val());
+            var data = sentence($("#input").val());
             var conll = new ConllU.Document();
             doc = conll.parse(data).toBrat();
             liveDispatcher.post('requestRenderData', [doc]);
