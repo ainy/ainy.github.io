@@ -4,7 +4,7 @@ var fs = require("fs");
 var test = fs.readFileSync("UD_Russian-SynTagRus/ru_syntagrus-ud-train.conllu",'utf8');
 
 var {parse, tokenize, prepare, setMorph} = require('./ud.js');
-setMorph(require("msgpack-lite").decode(fs.readFileSync("morph.bin")), JSON.parse(fs.readFileSync("lemmas.json")));
+setMorph(require("msgpack-lite").decode(fs.readFileSync("morph.bin")));
 
 var expected = [];
 var err=0, total=0;
@@ -51,4 +51,4 @@ test.split('\n').forEach((line,num)=>{
 
 });
 console.log('Errors',err*100/total,'%');
-//Errors 41.16011558168991 %
+//Errors 33.70431500378146 %

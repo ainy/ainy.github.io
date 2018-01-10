@@ -445,15 +445,22 @@ function prepare(words) {
       w++;
     }
     var word = words[w].toLowerCase();
-    var morph = lookup(word);
-    if (!morph.length) morph=[guess2(words[w])||''];
-    morph = morph[morph.length-1].split(' ').join(',').split(',');//last is most frequent
+    var all_morph = lookup(word);
+    if (!all_morph.length) all_morph=[guess2(words[w])||''];
+    var morph = all_morph[all_morph.length-1].split(' ').join(',').split(',');//last is most frequent
     var pos = morph[0]; 
     var tags = [];
-    for(var m=0; m<morph.length; m++) {
+    for(let m in morph) {
       if (morph[m].indexOf('+')>=0) word = morph[m];
       else if (morph[m].toUpperCase() == morph[m]) pos = morph[m];
-      else tags.push(morph[m]);
+      //else tags.push(morph[m]);
+    }
+    // we will collect all tags from definitions with the same part of speech
+    for(let a in all_morph) {
+      morph = all_morph[a].split(' ').join(',').split(',');
+      if (morph.indexOf(pos)<0) continue;
+      for(let m in morph)
+        tags.push(morph[m]);
     }
     
     data.push([i,words[w],word,pos,pos,new Set(tags),0,'','',SpaceAfter]);

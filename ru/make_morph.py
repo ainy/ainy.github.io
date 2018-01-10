@@ -62,8 +62,20 @@ for k,p in paradigm.iteritems():
       p[0] -= pp[0]
       p[-1].append(kk)
 
-for p in paradigm.values():
-  p[0] = dict(p[0])
+
+#this last part represents paradigm definition as dict(for compression and perfomance) but
+#makes it ambiguous as-if a word can be both accs and nomn: neut,accs,nomn,sing,ADJF
+#disable it to get list of pairs representation instead of dict
+for p in paradigm.values(): 
+  d = dict()
+  for k,v in p[0]:
+    d[k] = d.get(k, set())
+    d[k] |= set(v)
+  
+  for k in d:
+    d[k] = list(d[k])
+  
+  p[0] = d
 
 import json
 
