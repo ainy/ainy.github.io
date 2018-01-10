@@ -1,9 +1,10 @@
 'use strict';
 
-var para, stem, tags;
-function setMorph([s, p, t]) {
+var para, stem, tags, lemmas;
+function setMorph([s, p, t], l) {
   para = p;
   stem = s;
+  lemmas = l;
   tags = new Map();
   for (var i in t) tags.set(t[i],i);
 }
@@ -35,6 +36,7 @@ function lookup(word) {
   return ret;
 }
 
+//light version pos guessing, can return undefined
 function guess(w) {
   var pos_guess;
   if (w === w.toUpperCase())
@@ -75,119 +77,202 @@ function guess2(w) {
   
   return pos_guess;
 }
+function links(self, ii, j, label) {
+  for (var i = 0; i < ii.length; i++)
+    link(self, ii[i], j, label);
+}
 
-
-var grammar, gtags, stats;
-function setGrammar([g,t]) {
-  grammar = g;
-  stats = new Map();
-  gtags = new Map(Object.entries(t));
-  
-  //calculate stats
-  var gk = Object.keys(grammar);
-  for(var k in gk) {
-    var spl = gk[k].split(',');
-    for (var s in spl) {
-      var tag = parseFloat(spl[s]);
-      var val = grammar[gk[k]][0];
-      stats.set(tag, (stats.get(tag)||0) + val);
-    }
+function link(self, i, j, label) {
+  label = label||'-';
+  if (i != j && !self[i][7]) {
+    self[i][6]=j;
+    self[i][7]=label;
   }
-    
 }
 
-function pos(item) {
-  const freq = new Set(['SCONJ','PART','CCONJ','PUNCT']);
-  var ret = item[3];
-  if (freq.has(ret)) ret = item[1];
-  if (ret == 'AUX') ret = 'быть';
-  return ret;
-}
+var NPP = new Set(['NOUN','NPRO']);
+var per3 = new Set(['её','ее','его']);
+var detadj = new Set(['PRTF','ADJF']);
+var nprop = new Set(['NOUN']);
+var adjc = new Set(['ADJF','ADVB','CONJ','PRTF']);
+var unamod = new Set(['ADJF','ADVB','PUNCT','ADV','NUMR','CONJ','PRTF']);//'ADJ','DET','PUNCT','NUM','ADV','CCONJ'
+var verb = new Set(['GRND','PRTF','INFN']);
+var Case = new Set(['nomn','gen2','gen1','gent','datv','accs','acc2','voct','ablt','loct','loc2','loc1']);
+var Numb = new Set(['sing','plur']);
+var Gender = new Set(['masc','neut','femn']);
 
-function pos_features(self, item, ch) {
-  var ret = [];
-  if (item[3] == 'PRCL' || item[3] == 'CONJ' || item[3] == 'PUNCT') ret = [item[1]];
-  ret = ret.concat(item[5]);
-  if (!ret.length) ret = ['_'];
-  for (var c in ch) ret.push('has:'+pos(self[ch[c]]));
-  return ret;
-}
-function set_link(self, i, j, label) {
-  console.log('set_link', i, j);
-  self[i][6]=j;
-  self[i][7]=label;
-}
 
-function predict_link(dif, f1,f2,f3) {
-  var feat = f1.map(x=>'leaf:'+x).concat(f2,f3)
-  feat = feat.map(x=>gtags.get(x));
-  feat.sort();
-  var k = feat.join(',');
-  console.log(k);
-  while (feat.length && !(k in grammar)) {
-    var min_tag;
-    for (var f in feat)
-      if ((stats.get(feat[f])||0) < stats.get(feat[min_tag])||Infinity)
-        min_tag = f;
-    feat.splice(min_tag, 1);
-    k = feat.join(',');
-  }
-  if (k in grammar) return grammar[k][1] > grammar[k][0]/2;
-  console.log('tags not found',f1,f2,f3);
-  return false;//TODO: guess how?
-}
-
-function parse(self) {
-  var num = 1;
-  var t = new Map()
-  for (var i in self) {
-    i = parseFloat(i);
-    var tt = t;
-    var lnk_found = false;
-    
-    while (tt.size) {
-      var ttk = Array.from(tt.keys());
-      ttk.sort();
-      var k = parseFloat(ttk[ttk.length-1]);
-      if (k==i) { 
-        if (tt.size < 2) break;
-        k = parseFloat(ttk[ttk.length-2]);
-      }
-      var ipos = pos_features(self, self[i], Array.from((tt.get(i)||new Map()).keys()) )
-      var kpos = pos_features(self, self[k], Array.from((tt.get(k)||new Map()).keys()) )
-      var common_tags = []
-      var tags = self[i][5].filter(x=>self[k][5].includes(x));
-      for (var tag in tags)
-        common_tags.push(tags[tag].split('=')[0]);
+function get_possible_lemma(self, i) {
+  var cur_lemma = self[i][1].toLower()+'_';
+  for (var i =0; i<lemmas.length; i++) {
+      var l = lemmas[i];
+      if (!l.startsWith(cur_lemma))
+        continue;
       
-      if (tt==t && predict_link(i-k, kpos, ipos, common_tags)) {
-        set_link(self, k, i+1, num++);
-        tt.set(i, tt.get(i) || new Map());
-        tt.get(i).set(k, tt.get(k)); //tt[i][k] = tt[k];
-        tt.delete(k);
-        if (tt.size > 1)
-            continue
-      }
-        
-      if (predict_link(k-i, ipos, kpos, common_tags)) {
-        set_link(self, i, k+1, num++);
-        if (t.has(i)) { 
-          tt.set(k, tt.get(k) || new Map()); //tt[k][i] = t[i]
-          tt.get(k).set(i, t.get(i));
-          t.delete(i);
-        }
-        else {
-          tt.set(k, tt.get(k) || new Map());
-          tt.get(k).set(i, new Map()); //tt[k][i]
-        }
-        lnk_found = true;
-        break;
-      }
-      tt = tt.get(k) || new Map();
-    }
-    if (!lnk_found) 
-        t.set(i, new Map());
+      var ll = l.split('_');
+      if (self.slice(i,i+ll.length).every((x, j)=>x[1].toLower()==ll[j]))
+          return ll;
   }
+  return [];
+}
+
+function parse(self) { 
+  var nsubj, ncase, nmod, amod = [], nummod, root = [], rest = [], npunct, firstroot, cases = [];
+  for (var i = 0; i < self.length; i++) {
+    let SpaceAfter;
+    if (self[i][1]==='') {
+      SpaceAfter = 'no';
+      i++;
+    }
+    let pl = get_possible_lemma(self, i);
+    if (pl.length) {
+      if (self[i+pl.length-1][3] == 'PREP') ncase = i;
+      rest.push(i);
+      for (let j = 1; j < pl.length; j++) {
+          i+=1;
+          link(self, i, i-1);
+      }
+      i+=1;
+      continue;
+    }
+    if (self[i][5].has('Surn') && self[i-1][5].has('Name') || self[i][5].has('Patr') && self[i-1][5].has('Name')) 
+      link(self, i, i-1);
+    else if (NPP.has(self[i][3]) && self[i][5].has('nomn')) {
+        if (nsubj) root.unshift(i);
+        else nsubj = i;
+    }
+    if (self[i][3] == 'PREP') ncase = i;
+    
+    if (ncase !== undefined)
+        if (NPP.has(self[i][3]) && !per3.has(self[i][1]) || 
+          i+1 < self.length && self[i+1][1] == ',' && self[i][3] in detadj) {
+            link(self, ncase, i);
+            ncase = undefined;
+            cases.push(i);
+    }
+    if (i+1 < self.length && self[i+1][3]=='PUNCT' && self[i][3] in detadj) 
+        root.unshift(i);
+    
+    if (self[i][3] in nprop && nmod !== undefined && self[i][5].has('gent'))
+        link(self, i, nmod);
+    
+    if (self[i][3] == 'PRTF')
+        amod.push(i);
+    
+    if (nmod !== undefined && self[i][1]=='"' && i+2<self.length && self[i+2][1]=='"')
+        link(self, i+1, nmod);
+    
+    if (nprop.has(self[i][3])) nmod = i;
+    else if (!adjc.has(self[i][3])) nmod = undefined;
+    
+    if (detadj.has(self[i][3]))
+        amod.push(i);
+    
+    else if (amod.length)
+        if (NPP.has(self[i][3]))
+            for (let j = 0; j < amod.length; j++) {
+                let a = amod[j];
+                let inter = self[a][5].filter(x=>self[i][5].has(x));
+                let hasCase = inter.filter(x=>Case.has(x));
+                let hasNumb = inter.filter(x=>Numb.has(x));
+                let hasGender = inter.filter(x=>Gender.has(x));
+                
+                if (hasCase.size && hasNumb.size && (hasGender.size || self[i][5].has('plur')))
+                    link(self, a, i);
+            amod = [];
+        }
+        else if (!unamod.has(self[i][3]))
+            amod = [];
+    
+    if (self[i][3] == 'NUMR') nummod = i;
+    if (NPP.has(self[i][3]) && nummod !== undefined)
+        link(self, nummod, i);
+    else if (!unamod.has(self[i][3]) )
+        nummod = undefined;
+    
+    if (self[i][5].has ('надо+244')) root.push(i);
+    if (self[i][5].has ('можно+244')) root.push(i);
+    if (self[i][5].has ('долж+69')) root.push(i);
+    
+    if (self[i][3] == 'VERB' && !self[i][5].has('+600')) //быть
+            root.push(i);
+    else if (verb.has(self[i][3]))
+            root.unshift(i);
+            
+    if (self[i][3] == 'COMP' || self[i][3] == 'ADJS' || self[i][3] == 'PRTS')
+        root.unshift(i);
+    
+    let checki = true;
+    if (self[i][3]=='CONJ' && i-1>0 && i+1<self.length )
+        if (self[i-1][3] == self[i+1][3] && self[i-1][5] == self[i+1][5] ) {
+            link(self, i+1, i-1);//conj
+            link(self, i, i+1);//cc
+            checki=false;
+    }
+    
+    let checkp = true;
+    if (self[i][1]==',' && i-1>0 && i+1<self.length )
+        if (self[i-1][3] == self[i+1][3] && self[i-1][5] == self[i+1][5] ) {
+            link(self,i+1, i-1);//conj
+            checkp=false;
+    }
+    if ((checkp && self[i][3] == 'PUNCT' && self[i][1]!='"' || checki &&
+        self[i][1]=='и') && (root.length || cases.length)) {
+            let r;
+            if (root.length) r = root.pop();
+            else r = cases.shift();
+                
+            if (firstroot !== undefined) 
+                if (self[firstroot][3]=='GRND' || self[firstroot][3]=='PRTF')
+                    link(self, firstroot, r);
+                else
+                    link(self, r, firstroot);
+            
+            let inf;
+            for(let j = 0; j<root.length; j++)
+                if (self[root[j]][3] == 'INFN')
+                    inf=x;
+            
+            for(let j = 0; j<rest.length; j++) {
+                let x = rest[j];
+                if (inf !== undefined && NPP.has(self[x][3]) && self[x][5].has('accs'))
+                    link(self, x, inf);
+                
+            }
+            self.links(rest, r);
+            rest = [];
+            root = [];
+            cases = [];
+                
+            if (i-1>0 && i+1<self.length && self[i-1][5].has('то+') && self[i+1][1].startsWith('что')) {
+                firstroot = i-1;
+                link(self,i+1, i-1);
+            }
+            else
+                firstroot=r;
+            
+            if (i+1<self.length && self[i+1][1].startsWith('что'))
+                link(self,i+1, r);
+            
+    }
+    if (self[i][3] == 'PUNCT')
+        if (SpaceAfter=='no' && i+1 < self.length && self[i+1][3] != 'PUNCT')
+            link(self,i, i+1)
+        else if (npunct !== undefined) link(self, i, npunct);
+        else link(self, i, i+1);
+    else npunct = i;
+    
+    rest.push(i);
+  }
+    
+  if (!root.length) {
+    let r;
+    if (firstroot !== undefined) r = firstroot;
+    else r=rest.pop(0);
+    if (self.p[r] == 'PUNCT') r++;
+    self.links(rest, r);
+  }
+  else links(self, rest, root.shift()); /**/
 }
 
 function tokenize(line) {
@@ -208,6 +293,7 @@ function tokenize(line) {
       data.push(parts.shift()+parts.shift());
     
     for (var p in parts) {
+      if (p==0) data.push('');
       var prt = parts[p];
       if (prt.indexOf('-')>=0) {
         var lu = lookup(prt.toLowerCase());
@@ -230,7 +316,7 @@ function tokenize(line) {
   return data;
 }
 
-function sentance(words){
+function sentence(words) {
   words = tokenize(words);
   var i=1;
   var data = [];
@@ -247,7 +333,7 @@ function sentance(words){
       else tags.push(morph[m]);
     }
     
-    data.push([i,words[w],word,pos,morph[0],tags,0,0,0]);
+    data.push([i,words[w],word,pos,morph[0],new Set(tags),0,0,0]);
     i++;
   }
   parse(data);
@@ -255,4 +341,4 @@ function sentance(words){
   return data.map(x=>x.join('\t')).join('\n');
 }
 
-if (typeof module != 'undefined') module.exports = {lookup, setMorph, setGrammar, parse, sentance}
+if (typeof module != 'undefined') module.exports = {lookup, setMorph, guess2, parse, sentence, tokenize}

@@ -4,9 +4,9 @@ var fs = require("fs");
 var test = fs.readFileSync("UD_Russian-SynTagRus/ru_syntagrus-ud-train.conllu",'utf8');
 
 var {tokenize, setMorph} = require('./ud.js');
-setMorph(require("msgpack-lite").decode(require("fs").readFileSync("morph.bin")));
+setMorph(require("msgpack-lite").decode(fs.readFileSync("morph.bin")));
 
-var lemmas = JSON.parse(fs.readFileSync("lemmas.json"));
+var lemmas=[];// = JSON.parse(fs.readFileSync("lemmas.json"));
 function lemmatize(line) {
   for (var l in lemmas)
     line = line.split(l.split('_').join(' ')).join(l);
@@ -33,6 +33,10 @@ test.split('\n').forEach((line,num)=>{
     process.exit(1);
   }
   var ex = expected[0];
+  if (ex==='') {
+    expected.shift();
+    ex = expected[0];
+  }
   var lin = line[1].split('ё').join('е');
   total++;
   if (ex !== lin) {
@@ -51,4 +55,4 @@ test.split('\n').forEach((line,num)=>{
   
 });
 console.log('Errors',err*100/total,'%');
-//Errors 0.3253895824760871
+//Errors 0.3253895824760871 %
