@@ -42,7 +42,7 @@
     $('.test2').click(x=>{$('#input').val('Начальник областного управления связи Семен Еремеевич был человек простой, приходил на работу всегда вовремя, здоровался с секретаршей за руку и иногда даже писал в стенгазету заметки под псевдонимом "Муха".').trigger(jQuery.Event( 'keyup', { keyCode: 13 } ))});
     if((navigator.language||navigator.systemLanguage)=='en') { $('.en').show(); $('.ru').hide() }
     var jobs = [
-      {url:'ru/morph.bin',progress:0,done:setMorph},
+      {url:'ru/morph.bin',progress:0,done:setMorph,total:100},
       //{url:'grammar.bin',progress:0,done:setGrammar},
     ]
     jobs.map(job => {
@@ -61,7 +61,7 @@
 
       xhr.addEventListener('progress', function(evt) {
         if (evt.lengthComputable) {
-          job.progress = Math.ceil(evt.loaded / evt.total * 50);
+          job.progress = Math.ceil(evt.loaded / evt.total * job.total);
           var percentComplete = jobs.reduce((a, b) => a + b.progress, 0)+'%';
           $('#bar').width(percentComplete);
           $('#progress').text(percentComplete);
