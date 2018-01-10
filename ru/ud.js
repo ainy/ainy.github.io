@@ -9,10 +9,11 @@ function setMorph([s, p, t], l) {
   for (var i in t) tags.set(t[i],i);
 }
 
-function look_para(ret, p, suffix, wsmi) {
+function look_para(ret, p, suffix, wsmi, freq) {
   var nosuffix = Object.keys(para[p][0]).length == 0 && !suffix;
   if (suffix in para[p][0] || nosuffix) {
-    var info=''
+    var info='0000000'+freq;
+    info = info.substr(info.length-7) + ','
     for (var t in para[p][1])
       info += tags.get(para[p][1][t])+','
     for (var t in para[p][0][suffix])
@@ -21,7 +22,7 @@ function look_para(ret, p, suffix, wsmi) {
     ret.push(info+wsmi+'+'+p);
   }
   for (var k in para[p][2])
-    look_para(ret,para[p][2][k],suffix, wsmi);
+    look_para(ret,para[p][2][k],suffix, wsmi, freq);
 }
 
 function lookup(word) {
@@ -29,10 +30,11 @@ function lookup(word) {
   word = word+'#';
   for(var i=1; i<=word.length; i++) {
     var wsmi = word.slice(0,-i);
-    if(wsmi in stem) 
+    if(wsmi in stem)
       for(var j in stem[wsmi])
-        look_para(ret, stem[wsmi][j], word.slice(-i,-1), wsmi);
+        look_para(ret, j, word.slice(-i,-1), wsmi, stem[wsmi][j]);
   }
+  ret.sort();
   return ret;
 }
 
@@ -103,14 +105,17 @@ var Gender = new Set(['masc','neut','femn']);
 
 
 function get_possible_lemma(self, i) {
-  var cur_lemma = self[i][1].toLower()+'_';
+  var cur_lemma = self[i][1].toLowerCase()+'_';
   for (var i =0; i<lemmas.length; i++) {
       var l = lemmas[i];
       if (!l.startsWith(cur_lemma))
         continue;
       
       var ll = l.split('_');
-      if (self.slice(i,i+ll.length).every((x, j)=>x[1].toLower()==ll[j]))
+      if (i+ll.length>self.length) 
+        continue;
+      
+      if (ll.every((x, j)=>self[i+j][1].toLowerCase()==x))
           return ll;
   }
   return [];
@@ -119,23 +124,18 @@ function get_possible_lemma(self, i) {
 function parse(self) { 
   var nsubj, ncase, nmod, amod = [], nummod, root = [], rest = [], npunct, firstroot, cases = [];
   for (var i = 0; i < self.length; i++) {
-    let SpaceAfter;
-    if (self[i][1]==='') {
-      SpaceAfter = 'no';
-      i++;
-    }
     let pl = get_possible_lemma(self, i);
     if (pl.length) {
       if (self[i+pl.length-1][3] == 'PREP') ncase = i;
       rest.push(i);
       for (let j = 1; j < pl.length; j++) {
-          i+=1;
+          i++;
           link(self, i, i-1);
       }
-      i+=1;
+      i++;
       continue;
     }
-    if (self[i][5].has('Surn') && self[i-1][5].has('Name') || self[i][5].has('Patr') && self[i-1][5].has('Name')) 
+    if (i-1>0 && (self[i][5].has('Surn') && self[i-1][5].has('Name') || self[i][5].has('Patr') && self[i-1][5].has('Name'))) 
       link(self, i, i-1);
     else if (NPP.has(self[i][3]) && self[i][5].has('nomn')) {
         if (nsubj) root.unshift(i);
@@ -145,15 +145,15 @@ function parse(self) {
     
     if (ncase !== undefined)
         if (NPP.has(self[i][3]) && !per3.has(self[i][1]) || 
-          i+1 < self.length && self[i+1][1] == ',' && self[i][3] in detadj) {
+          i+1 < self.length && self[i+1][1] == ',' && detadj.has(self[i][3])) {
             link(self, ncase, i);
             ncase = undefined;
             cases.push(i);
     }
-    if (i+1 < self.length && self[i+1][3]=='PUNCT' && self[i][3] in detadj) 
+    if (i+1 < self.length && self[i+1][3]=='PUNCT' && detadj.has(self[i][3])) 
         root.unshift(i);
     
-    if (self[i][3] in nprop && nmod !== undefined && self[i][5].has('gent'))
+    if (nprop.has(self[i][3]) && nmod !== undefined && self[i][5].has('gent'))
         link(self, i, nmod);
     
     if (self[i][3] == 'PRTF')
@@ -169,16 +169,17 @@ function parse(self) {
         amod.push(i);
     
     else if (amod.length)
-        if (NPP.has(self[i][3]))
+        if (NPP.has(self[i][3])) {
             for (let j = 0; j < amod.length; j++) {
                 let a = amod[j];
-                let inter = self[a][5].filter(x=>self[i][5].has(x));
+                let inter = Array.from(self[a][5]).filter(x=>self[i][5].has(x));
                 let hasCase = inter.filter(x=>Case.has(x));
                 let hasNumb = inter.filter(x=>Numb.has(x));
                 let hasGender = inter.filter(x=>Gender.has(x));
                 
-                if (hasCase.size && hasNumb.size && (hasGender.size || self[i][5].has('plur')))
+                if (hasCase.length && hasNumb.length && (hasGender.length || self[i][5].has('plur')))
                     link(self, a, i);
+            }
             amod = [];
         }
         else if (!unamod.has(self[i][3]))
@@ -204,7 +205,7 @@ function parse(self) {
     
     let checki = true;
     if (self[i][3]=='CONJ' && i-1>0 && i+1<self.length )
-        if (self[i-1][3] == self[i+1][3] && self[i-1][5] == self[i+1][5] ) {
+        if (self[i-1][3] == self[i+1][3] && Array.from(self[i-1][5]).join(',') == Array.from(self[i+1][5]).join(',') ) {
             link(self, i+1, i-1);//conj
             link(self, i, i+1);//cc
             checki=false;
@@ -212,7 +213,7 @@ function parse(self) {
     
     let checkp = true;
     if (self[i][1]==',' && i-1>0 && i+1<self.length )
-        if (self[i-1][3] == self[i+1][3] && self[i-1][5] == self[i+1][5] ) {
+        if (self[i-1][3] == self[i+1][3] && Array.from(self[i-1][5]).join(',') == Array.from(self[i+1][5]).join(',') ) {
             link(self,i+1, i-1);//conj
             checkp=false;
     }
@@ -231,7 +232,7 @@ function parse(self) {
             let inf;
             for(let j = 0; j<root.length; j++)
                 if (self[root[j]][3] == 'INFN')
-                    inf=x;
+                    inf=root[j];
             
             for(let j = 0; j<rest.length; j++) {
                 let x = rest[j];
@@ -239,12 +240,12 @@ function parse(self) {
                     link(self, x, inf);
                 
             }
-            self.links(rest, r);
+            links(self, rest, r);
             rest = [];
             root = [];
             cases = [];
                 
-            if (i-1>0 && i+1<self.length && self[i-1][5].has('то+') && self[i+1][1].startsWith('что')) {
+            if (i-1>0 && i+1<self.length && self[i-1][5].has('т+2908') && self[i+1][1].startsWith('что')) {
                 firstroot = i-1;
                 link(self,i+1, i-1);
             }
@@ -256,8 +257,8 @@ function parse(self) {
             
     }
     if (self[i][3] == 'PUNCT')
-        if (SpaceAfter=='no' && i+1 < self.length && self[i+1][3] != 'PUNCT')
-            link(self,i, i+1)
+        if (self[i][1] == '"' && self[i][9]=='SpaceAfter=no' && i+1 < self.length && self[i+1][3] != 'PUNCT')
+            link(self, i, i+1);
         else if (npunct !== undefined) link(self, i, npunct);
         else link(self, i, i+1);
     else npunct = i;
@@ -269,10 +270,11 @@ function parse(self) {
     let r;
     if (firstroot !== undefined) r = firstroot;
     else r=rest.pop(0);
-    if (self.p[r] == 'PUNCT') r++;
-    self.links(rest, r);
+    if (self[r][3] == 'PUNCT') r++;
+    links(self, rest, r);
   }
-  else links(self, rest, root.shift()); /**/
+  else links(self, rest, root.shift()); 
+  /*TODO return score*/
 }
 
 function tokenize(line) {
@@ -301,7 +303,8 @@ function tokenize(line) {
         var splc = prt.toLowerCase().split('-');
         var splu;
         if (!lu.length) splu = splc.map(lookup).every(x=>x.length);
-        if (splu || !lu.length && prt.indexOf('-то')>=0 || prt.indexOf('-то')<0 && prt.indexOf('-либо')<0 && prt.indexOf('-нибудь')<0 && lu[0] && lu[0].indexOf('ADJF')>=0 && spl.length==2) {
+        if (splu || !lu.length && prt.indexOf('-то')>=0 || prt.indexOf('-то')<0 && 
+        prt.indexOf('-либо')<0 && prt.indexOf('-нибудь')<0 && lu[0] && lu[0].indexOf('ADJF')>=0 && spl.length==2) {
           for(var i in spl) {
             if (spl[i]) data.push(spl[i]);
             data.push('-');
@@ -315,30 +318,38 @@ function tokenize(line) {
   }
   return data;
 }
-
-function sentence(words) {
-  words = tokenize(words);
+function prepare(words) {
   var i=1;
   var data = [];
-  for (var w in words) {
+  for (var w=0; w < words.length; w++) {
+    let SpaceAfter;
+    if (words[w]==='') {
+      SpaceAfter = 'SpaceAfter=no';
+      w++;
+    }
     var word = words[w].toLowerCase();
     var morph = lookup(word);
     if (!morph.length) morph=[guess2(words[w])||''];
-    morph = morph[0].split(' ').join(',').split(',');
-    var pos = morph[0];
+    morph = morph[morph.length-1].split(' ').join(',').split(',');//last is most frequent
+    var pos = morph[0]; 
     var tags = [];
     for(var m=0; m<morph.length; m++) {
       if (morph[m].indexOf('+')>=0) word = morph[m];
-      else if (morph[m].toUpperCase() == morph[m]) {pos = morph[m];tags.push(pos);}
+      else if (morph[m].toUpperCase() == morph[m]) pos = morph[m];
       else tags.push(morph[m]);
     }
     
-    data.push([i,words[w],word,pos,morph[0],new Set(tags),0,0,0]);
+    data.push([i,words[w],word,pos,pos,new Set(tags),0,'','',SpaceAfter]);
     i++;
   }
-  parse(data);
-  for (var d in data) data[d][5] = Array.from(data[d][5]).join('|');
-  return data.map(x=>x.join('\t')).join('\n');
+  return data;
+}
+function sentence(words) {
+  words = tokenize(words);
+  words = prepare(words);
+  parse(words);
+  for (var d in words) words[d][5] = Array.from(words[d][5]).join('|');
+  return words.map(x=>x.join('\t')).join('\n');
 }
 
-if (typeof module != 'undefined') module.exports = {lookup, setMorph, guess2, parse, sentence, tokenize}
+if (typeof module != 'undefined') module.exports = {lookup, setMorph, guess2, parse, sentence, tokenize, prepare}

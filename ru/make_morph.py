@@ -5,22 +5,26 @@ import sqlite3
 conn = sqlite3.connect('morph.db')
 conn.text_factory = unicode
 
-dic = conn.execute('select stem.prefix, norm.suffix, stem.rule from stem join norm on stem.rule=norm.rule;').fetchall()
+dic = conn.execute('select stem.prefix, norm.suffix, stem.rule, form.tag from stem join norm on stem.rule=norm.rule join form on form.rule=norm.rule and form.suffix=norm.suffix;').fetchall()
 
 import codecs
 freq = codecs.open('freqrnc2011.csv','r','utf8').readlines()
-freq = dict([(line.split()[0].lower(),float(line.split()[2])) for line in freq])
+freq = dict([(line.split()[0].lower(),(line.split()[1], float(line.split()[2]))) for line in freq])
 
+tconv = {'a':'ADJF', 'adv':'ADVB', 'advpro':'ADVB', 'num':'NUMR', 'pr':'PREP', 'apro':'ADJF', 's.PROP':'NOUN', 
+  'intj':'INTJ', 'spro':'NPRO', 's':'NOUN', 'part':'PRCL', 'v':'VERB', 'conj':'CONJ', 'anum':'NUMR'}
 vv = {}
 seen = set()
-for s,n,r in dic:
+for s,n,r,t in dic:
     w = s+n
     w = w.replace('ё','е')
     if w in freq:
         if freq[w]>0:
             s = s.replace('ё','е') #testing! comment me
-            vv[s] = vv.get(s,[])
-            vv[s].append(r)
+            vv[s] = vv.get(s,{})
+            t = t.replace(' ',',').split(',')[0]
+            pos, frq = freq[w];
+            vv[s][r]=int(frq*10)+(tconv[pos] == t)
             seen.add(r)
 
 print 'words:', len(vv), 'of', len(freq)
@@ -41,10 +45,9 @@ for r,s,t in para:
 
 tags = dict(zip(tags,range(len(tags))))
 for p in paradigm.values():
-  p[0] = set([(s, tuple([tags[x] for x in t-p[1]])) for s,t in p[0] if s or t-p[1] ])
+  p[0] = set([(s, tuple([tags[x] for x in t-p[1]])) for s,t in p[0] if len(p[0])>1 or s or t-p[1] ])
   p[1] = tuple([(tags[x]) for x in p[1]])
   
-
 i=0
 import copy
 paradigm_orig = copy.deepcopy(paradigm)
