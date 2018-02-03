@@ -1,15 +1,42 @@
 'use strict';
 
-function convert(w, tags) {
-    const tconv = {'actv':'Voice=Act', 'indc':'Mood=Ind', 'gen2':'Case=Par', 'datv':'Case=Dat',
-    'accs':'Case=Acc','acc2':'Case=Acc', 'ANim':'Animacy=Anim','anim':'Animacy=Anim', 'perf':'Aspect=Perf',
-    'plur':'Number=Plur', 'femn':'Gender=Fem', 'impf':'Aspect=Imp', 'pssv':'Voice=Pass', 'inan':'Animacy=Inan',
-    'sing':'Number=Sing', 'past':'Tense=Past', 'neut':'Gender=Neut', 'pres':'Tense=Pres', 'voct':'Case=Voc',
-    'nomn':'Case=Nom', 'futr':'Tense=Fut', 'Supr':'Degree=Sup', '2per':'Person=2', '3per':'Person=3',
-    'impr':'Mood=Imp', '1per':'Person=1', 'ablt':'Case=Ins', 'gent':'Case=Gen','gen1':'Case=Gen',
-    'masc':'Gender=Masc', 'loct':'Case=Loc', 'loc2':'Case=Loc', 'loc1':'Case=Loc'}
-
-    const pconv = {
+const best = {'ADJ': 'obl',
+  'ADP': 'advmod',
+  'ADV': 'advmod',
+  'AUX': 'cop',
+  'CCONJ': 'cc',
+  'DET': 'amod',
+  'INTJ': 'parataxis',
+  'NOUN': 'obl',
+  'NUM': 'nummod',
+  'PART': 'advmod',
+  'PRON': 'nsubj',
+  'PROPN': 'nsubj',
+  'SCONJ': 'cc',
+  'SYM': 'case',
+  'VERB': 'xcomp',
+}
+const label = {
+  '1':'fixed',
+  //'2':'flat:name' if 'Case=Gen' not in self.t[i] else 'nmod',
+  '3':'case',
+  '4':'nmod',
+  '5':'appos',
+  '6':'amod',
+  '7':'nummod',
+  '8':'conj',
+  '9':'cc',
+  '10':'conj',
+  '11':'advcl',
+  '12':'conj',
+  '13':'obj',
+  '15':'mark',
+  '16':'mark',
+  '17':'punct',
+  '18':'punct',
+  '19':'punct'
+}
+const pconv = {
       "ADJF":["ADJ"],
       "ADJS":["ADJ","Variant=Short"],
       "COMP":["ADJ","Degree=Cmp"],
@@ -31,7 +58,23 @@ function convert(w, tags) {
       "INTJ":["INTJ"],
       "CONJ":["CCONJ"]
     }
-  
+function get_label(self, i, j, l) {
+  if (l in label) return label[l];
+  if (l==2) return self[i][5].has('gent')?'nmod':'flat:name';
+  let pos = self[i][3];
+  if (!(pos in pconv)) return '-';
+  return best[pconv[pos][0]] || '-';
+}
+
+function convert(w, tags) {
+    const tconv = {'actv':'Voice=Act', 'indc':'Mood=Ind', 'gen2':'Case=Par', 'datv':'Case=Dat',
+    'accs':'Case=Acc','acc2':'Case=Acc', 'ANim':'Animacy=Anim','anim':'Animacy=Anim', 'perf':'Aspect=Perf',
+    'plur':'Number=Plur', 'femn':'Gender=Fem', 'impf':'Aspect=Imp', 'pssv':'Voice=Pass', 'inan':'Animacy=Inan',
+    'sing':'Number=Sing', 'past':'Tense=Past', 'neut':'Gender=Neut', 'pres':'Tense=Pres', 'voct':'Case=Voc',
+    'nomn':'Case=Nom', 'futr':'Tense=Fut', 'Supr':'Degree=Sup', '2per':'Person=2', '3per':'Person=3',
+    'impr':'Mood=Imp', '1per':'Person=1', 'ablt':'Case=Ins', 'gent':'Case=Gen','gen1':'Case=Gen',
+    'masc':'Gender=Masc', 'loct':'Case=Loc', 'loc2':'Case=Loc', 'loc1':'Case=Loc'}
+
     var tags_guess = new Set();
     var pos_guess = ''
     if (tags===undefined) {
@@ -177,10 +220,9 @@ function links(self, ii, j, label) {
 }
 
 function link(self, i, j, label) {
-  label = label||'-';
   if (i != j && !self[i][7]) {
     self[i][6]=j+1;
-    self[i][7]=label;
+    self[i][7]=get_label(self, i, j, label);
   }
 }
 
@@ -222,13 +264,13 @@ function parse(self) {
       rest.push(i);
       for (let j = 1; j < pl.length; j++) {
           i++;
-          link(self, i, i-1);
+          link(self, i, i-1, 1);
       }
       i++;
       continue;
     }
     if (i-1>0 && (self[i][5].has('Surn') && self[i-1][5].has('Name') || self[i][5].has('Patr') && self[i-1][5].has('Name'))) 
-      link(self, i, i-1);
+      link(self, i, i-1, 2);
     else if (NPP.has(self[i][3]) && self[i][5].has('nomn')) {
         if (nsubj) root.unshift(i);
         else nsubj = i;
@@ -238,7 +280,7 @@ function parse(self) {
     if (ncase !== undefined)
         if (NPP.has(self[i][3]) && !per3.has(self[i][1]) || 
           i+1 < self.length && self[i+1][1] == ',' && detadj.has(self[i][3])) {
-            link(self, ncase, i);
+            link(self, ncase, i, 3);
             ncase = undefined;
             cases.push(i);
     }
@@ -246,13 +288,13 @@ function parse(self) {
         root.unshift(i);
     
     if (nprop.has(self[i][3]) && nmod !== undefined && self[i][5].has('gent'))
-        link(self, i, nmod);
+        link(self, i, nmod, 4);
     
     if (self[i][3] == 'PRTF')
         amod.push(i);
     
     if (nmod !== undefined && self[i][1]=='"' && i+2<self.length && self[i+2][1]=='"')
-        link(self, i+1, nmod);
+        link(self, i+1, nmod, 5);
     
     if (nprop.has(self[i][3])) nmod = i;
     else if (!adjc.has(self[i][3])) nmod = undefined;
@@ -270,7 +312,7 @@ function parse(self) {
                 let hasGender = inter.filter(x=>Gender.has(x));
                 
                 if (hasCase.length && hasNumb.length && (hasGender.length || self[i][5].has('plur')))
-                    link(self, a, i);
+                    link(self, a, i, 6);
             }
             amod = [];
         }
@@ -279,7 +321,7 @@ function parse(self) {
     
     if (self[i][3] == 'NUMR') nummod = i;
     if (NPP.has(self[i][3]) && nummod !== undefined)
-        link(self, nummod, i);
+        link(self, nummod, i, 7);
     else if (!unamod.has(self[i][3]) )
         nummod = undefined;
     
@@ -298,15 +340,15 @@ function parse(self) {
     let checki = true;
     if (self[i][3]=='CONJ' && i-1>0 && i+1<self.length )
         if (self[i-1][3] == self[i+1][3] && Array.from(self[i-1][5]).join(',') == Array.from(self[i+1][5]).join(',') ) {
-            link(self, i+1, i-1);//conj
-            link(self, i, i+1);//cc
+            link(self, i+1, i-1, 8);//conj
+            link(self, i, i+1, 9);//cc
             checki=false;
     }
     
     let checkp = true;
     if (self[i][1]==',' && i-1>0 && i+1<self.length )
         if (self[i-1][3] == self[i+1][3] && Array.from(self[i-1][5]).join(',') == Array.from(self[i+1][5]).join(',') ) {
-            link(self,i+1, i-1);//conj
+            link(self,i+1, i-1, 10);//conj
             checkp=false;
     }
     if ((checkp && self[i][3] == 'PUNCT' && self[i][1]!='"' || checki &&
@@ -317,9 +359,9 @@ function parse(self) {
                 
             if (firstroot !== undefined) 
                 if (self[firstroot][3]=='GRND' || self[firstroot][3]=='PRTF')
-                    link(self, firstroot, r);
+                    link(self, firstroot, r, 11);
                 else
-                    link(self, r, firstroot);
+                    link(self, r, firstroot, 12);
             
             let inf;
             for(let j = 0; j<root.length; j++)
@@ -329,30 +371,30 @@ function parse(self) {
             for(let j = 0; j<rest.length; j++) {
                 let x = rest[j];
                 if (inf !== undefined && NPP.has(self[x][3]) && self[x][5].has('accs'))
-                    link(self, x, inf);
+                    link(self, x, inf, 13);
                 
             }
-            links(self, rest, r);
+            links(self, rest, r, 14);
             rest = [];
             root = [];
             cases = [];
                 
             if (i-1>0 && i+1<self.length && self[i-1][5].has('т+2908') && self[i+1][1].startsWith('что')) {
                 firstroot = i-1;
-                link(self,i+1, i-1);
+                link(self,i+1, i-1, 15);
             }
             else
                 firstroot=r;
             
             if (i+1<self.length && self[i+1][1].startsWith('что'))
-                link(self,i+1, r);
+                link(self,i+1, r, 16);
             
     }
     if (self[i][3] == 'PUNCT')
         if (self[i][1] == '"' && self[i][9]=='SpaceAfter=No' && i+1 < self.length && self[i+1][3] != 'PUNCT')
-            link(self, i, i+1);
-        else if (npunct !== undefined) link(self, i, npunct);
-        else link(self, i, i+1);
+            link(self, i, i+1, 17);
+        else if (npunct !== undefined) link(self, i, npunct, 18);
+        else link(self, i, i+1, 19);
     else npunct = i;
     
     rest.push(i);
@@ -363,9 +405,9 @@ function parse(self) {
     if (firstroot !== undefined) r = firstroot;
     else r=rest.pop(0);
     if (self[r][3] == 'PUNCT') r++;
-    links(self, rest, r);
+    links(self, rest, r, 20);
   }
-  else links(self, rest, root.shift()); 
+  else links(self, rest, root.shift(), 21); 
   /*TODO return score*/
 }
 
